@@ -1,0 +1,13 @@
+Polyhedron: Three dimensional solid which consists of a collection
+of polygons. Usually joined at their edges.
+
+Polygon: A planar object connected by some amount of vertices and is closed.
+
+Coplanar: In the same plane.
+
+Top Facet: This facet will be the only one not in acontact
+with the mold.
+
+Ordinary Facet: A facet of P that is not a top facet.
+
+
