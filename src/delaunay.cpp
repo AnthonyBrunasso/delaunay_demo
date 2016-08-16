@@ -12,9 +12,10 @@ struct Point {
   float y;
 };
 
-Point b1(0.0f, 5.0f);
-Point b2(-5.0f, -5.0f);
-Point b3(5.0f, -5.0f);
+// Temp.
+Point b1(0.0f, 7.0f);
+Point b2(-6.0f, -6.0f);
+Point b3(6.0f, -6.0f);
 
 struct TriNode {
   TriNode(const Point& p1, 
@@ -204,9 +205,9 @@ private:
     }
 
     // If this is a leaf node and it hasn't been added to the tris list.
-    //if (!recursed && visited.find(node) == visited.end()) {
-    if (!recursed && visited.find(node) == visited.end()
-        && !vert_in(b1, node->m_pts) && !vert_in(b2, node->m_pts) && !vert_in(b3, node->m_pts)) {
+    if (!recursed && visited.find(node) == visited.end()) {
+    //if (!recursed && visited.find(node) == visited.end()
+    //    && !vert_in(b1, node->m_pts) && !vert_in(b2, node->m_pts) && !vert_in(b3, node->m_pts)) {
       visited.insert(node);
       for (int i = 0; i < 3; ++i) {
         tris.push_back(node->m_pts[i].x);
