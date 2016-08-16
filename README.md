@@ -1,15 +1,9 @@
-# 4xClient 
+# Delaunay Demo 
 
 ## Linux Pre-requirements (Ubuntu 16.04)
 apt-get install libpthread-stubs0-dev
 apt-get install mesa-common-dev
 apt-get install xorg-dev
-
-## General Pre-reqs
-git submodule update --init
-cd src/4xSimulation/tools
-python serialization.py 
-cd ../../..
 
 ## Gl4thewin
 From the root directory run:
@@ -25,5 +19,8 @@ cd build
 
 cmake ..\
 
-make
-"# Delaunay Demo" 
+## For Windows
+Open the solution file and build
+
+## For Linux/Mac
+Build with make
