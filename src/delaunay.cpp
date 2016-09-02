@@ -3,17 +3,10 @@
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
-#include <set>
 #include <iostream>
 
 namespace delaunay {
 
-struct Point {
-  Point() : x(0), y(0) {};
-  Point(float x, float y) : x(x), y(y) {};
-  float x;
-  float y;
-};
 
 // Temp.
 Point b1(20.0f, -20.0f);
@@ -92,151 +85,139 @@ bool point_in_circle(const Point& pt,
   return p_squared < r_squared;
 }
 
-class Triangulation {
-public:
-  Triangulation(const Point& p1, 
-      const Point& p2, 
-      const Point p3, 
-      const std::vector<Point>& ps) : m_points(ps) {
-    m_root = new TriNode(p1, p2, p3);
+Triangulation::Triangulation(const Point& p1, 
+    const Point& p2, 
+    const Point p3, 
+    const std::vector<Point>& ps) : m_points(ps) {
+  m_root = new TriNode(p1, p2, p3);
+}
+
+Triangulation::~Triangulation() {
+  //recursive_delete(m_root);
+}
+
+TriNode* Triangulation::insert(const Point& pt) {
+  std::vector<TriNode*> nodes;
+  find(pt, m_root, nodes);
+  // There should only be a single triangle containing this point, otherwise
+  // it was likely an existing vertex.
+  if (nodes.size() != 1) return nullptr;
+  TriNode* node = nodes.front();
+  // Create three new triangles with the given point.
+  node->m_children[0] = new TriNode(pt, node->m_pts[0], node->m_pts[1]);
+  node->m_children[1] = new TriNode(pt, node->m_pts[1], node->m_pts[2]);
+  node->m_children[2] = new TriNode(pt, node->m_pts[2], node->m_pts[0]);
+
+  return node;
+}
+
+TriNode* Triangulation::split(const Point& p1, const Point& p2) {
+  std::vector<TriNode*> nodes;
+  find_by_edge(p1, p2, m_root, nodes);
+  // We can only split a convex quadrilateral.
+  if (nodes.size() != 2) return nullptr;
+  TriNode* n1 = nodes[0];
+  TriNode* n2 = nodes[1];
+
+  Point p3, p4;
+  for (int i = 0; i < 3; ++i) {
+    if (!vert_in(n2->m_pts[i], n1->m_pts)) {
+      p3 = n2->m_pts[i]; 
+    }
+
+    if (!vert_in(n1->m_pts[i], n2->m_pts)) {
+      p4 = n1->m_pts[i]; 
+    }
   }
 
-  ~Triangulation() {
-    //recursive_delete(m_root);
+  // Check if a split needs to happen.
+  if (!point_in_circle(p4, n2->m_pts[0], n2->m_pts[1], n2->m_pts[2]) && 
+      !point_in_circle(p3, n1->m_pts[0], n1->m_pts[1], n1->m_pts[2])) {
+    return nullptr;
   }
 
-  TriNode* insert(const Point& pt) {
-    std::vector<TriNode*> nodes;
-    find(pt, m_root, nodes);
-    // There should only be a single triangle containing this point, otherwise
-    // it was likely an existing vertex.
-    if (nodes.size() != 1) return nullptr;
-    TriNode* node = nodes.front();
-    // Create three new triangles with the given point.
-    node->m_children[0] = new TriNode(pt, node->m_pts[0], node->m_pts[1]);
-    node->m_children[1] = new TriNode(pt, node->m_pts[1], node->m_pts[2]);
-    node->m_children[2] = new TriNode(pt, node->m_pts[2], node->m_pts[0]);
+  std::cout << "FLIPPING" << std::endl;
 
-    return node;
+  TriNode* t1 = new TriNode(p1, p3, p4);
+  TriNode* t2 = new TriNode(p2, p4, p3);
+
+  n1->m_children[0] = n2->m_children[0] = t1;
+  n1->m_children[1] = n2->m_children[1] = t2;
+
+  return n1;
+}
+
+std::vector<float> Triangulation::get_tris() {
+  std::vector<float> tris;
+  std::set<TriNode*> visited;
+  get_triangulation(m_root, tris, visited);
+  return tris;
+}
+
+void Triangulation::find(const Point& pt, TriNode* node, std::vector<TriNode*>& nodes) {
+  bool contains = vert_in(pt, node->m_pts) || point_in_tri(pt, node->m_pts);
+  if (!contains) return;
+  contains = false;
+
+  for (int i = 0; i < 3; ++i) {
+    if (node->m_children[i]) {
+      contains = true;
+      find(pt, node->m_children[i], nodes);
+    }
   }
 
-  TriNode* split(const Point& p1, const Point& p2) {
-    std::vector<TriNode*> nodes;
-    find_by_edge(p1, p2, m_root, nodes);
-    // We can only split a convex quadrilateral.
-    if (nodes.size() != 2) return nullptr;
-    TriNode* n1 = nodes[0];
-    TriNode* n2 = nodes[1];
+  // If this node was a leaf add it to the list.
+  if (!contains) nodes.push_back(node);
+}
 
-    Point p3, p4;
+// Find all triangles containing both p1 and p2.
+void Triangulation::find_by_edge(const Point& p1,
+    const Point& p2,
+    TriNode* node,
+    std::vector<TriNode*>& nodes) {
+  std::vector<TriNode*> n1;
+  find(p1, m_root, n1);
+  for (auto& n : n1) {
+    if (vert_in(p1, n->m_pts) && vert_in(p2, n->m_pts)) {
+      nodes.push_back(n);
+    }
+  }
+}
+
+void Triangulation::get_triangulation(TriNode*& node,
+    std::vector<float>& tris, 
+    std::set<TriNode*>& visited) {
+  if (!node) return;
+  bool recursed = false;
+  for (int i = 0; i < 3; ++i) {
+    if (node->m_children[i]) {
+      get_triangulation(node->m_children[i], tris, visited);
+      recursed = true;
+    }
+  }
+
+  // If this is a leaf node and it hasn't been added to the tris list.
+  if (!recursed && visited.find(node) == visited.end()) {
+  //if (!recursed && visited.find(node) == visited.end()
+  //    && !vert_in(b1, node->m_pts) && !vert_in(b2, node->m_pts)) {
+    visited.insert(node);
     for (int i = 0; i < 3; ++i) {
-      if (!vert_in(n2->m_pts[i], n1->m_pts)) {
-        p3 = n2->m_pts[i]; 
-      }
-
-      if (!vert_in(n1->m_pts[i], n2->m_pts)) {
-        p4 = n1->m_pts[i]; 
-      }
-    }
-
-    // Check if a split needs to happen.
-    if (!point_in_circle(p4, n2->m_pts[0], n2->m_pts[1], n2->m_pts[2]) && 
-        !point_in_circle(p3, n1->m_pts[0], n1->m_pts[1], n1->m_pts[2])) {
-      return nullptr;
-    }
-
-    std::cout << "FLIPPING" << std::endl;
-
-    TriNode* t1 = new TriNode(p1, p3, p4);
-    TriNode* t2 = new TriNode(p2, p4, p3);
-
-    n1->m_children[0] = n2->m_children[0] = t1;
-    n1->m_children[1] = n2->m_children[1] = t2;
-
-    return n1;
-  }
-
-  std::vector<float> get_tris() {
-    std::vector<float> tris;
-    std::set<TriNode*> visited;
-    get_triangulation(m_root, tris, visited);
-    return tris;
-  }
-
-private:
-  // Finds the leaf nodes of the tree the point is contained in.
-  // A point could be contained in many nodes if it is already an existing vertex.
-  void find(const Point& pt, TriNode* node, std::vector<TriNode*>& nodes) {
-    bool contains = vert_in(pt, node->m_pts) || point_in_tri(pt, node->m_pts);
-    if (!contains) return;
-    // Reset contains, it is used to detect if the current node is a leaf node.
-    contains = false;
-
-    // Loop through all the children, if none exist it is a leaf node, otherwise
-    // recurse into that child.
-    for (int i = 0; i < 3; ++i) {
-      if (node->m_children[i]) {
-        contains = true;
-        find(pt, node->m_children[i], nodes);
-      }
-    }
-
-    // If this node was a leaf add it to the list.
-    if (!contains) nodes.push_back(node);
-  }
-
-  // Find all triangles containing both p1 and p2.
-  void find_by_edge(const Point& p1,
-      const Point& p2,
-      TriNode* node,
-      std::vector<TriNode*>& nodes) {
-    std::vector<TriNode*> n1;
-    find(p1, m_root, n1);
-    for (auto& n : n1) {
-      if (vert_in(p1, n->m_pts) && vert_in(p2, n->m_pts)) {
-        nodes.push_back(n);
-      }
+      tris.push_back(node->m_pts[i].x);
+      tris.push_back(node->m_pts[i].y);
     }
   }
+}
 
-  void get_triangulation(TriNode*& node, 
-      std::vector<float>& tris, 
-      std::set<TriNode*>& visited) {
-    if (!node) return;
-    bool recursed = false;
-    for (int i = 0; i < 3; ++i) {
-      if (node->m_children[i]) {
-        get_triangulation(node->m_children[i], tris, visited);
-        recursed = true;
-      }
-    }
+void Triangulation::recursive_delete(TriNode*& node) {
+  if (!node) return;
 
-    // If this is a leaf node and it hasn't been added to the tris list.
-    if (!recursed && visited.find(node) == visited.end()) {
-    //if (!recursed && visited.find(node) == visited.end()
-    //    && !vert_in(b1, node->m_pts) && !vert_in(b2, node->m_pts)) {
-      visited.insert(node);
-      for (int i = 0; i < 3; ++i) {
-        tris.push_back(node->m_pts[i].x);
-        tris.push_back(node->m_pts[i].y);
-      }
-    }
+  for (int i = 0; i < 3; ++i) {
+    if (node->m_children[i]) recursive_delete(node->m_children[i]);
   }
 
-  void recursive_delete(TriNode*& node) {
-    if (!node) return;
-
-    for (int i = 0; i < 3; ++i) {
-      if (node->m_children[i]) recursive_delete(node->m_children[i]);
-    }
-
-    delete node;
-    node = nullptr;
-  }
-
-  TriNode* m_root;
-  std::vector<Point> m_points;
-};
+  delete node;
+  node = nullptr;
+}
 
 void legalize_edge(const Point& p1, const Point& p2, const Point& p3, Triangulation& tria) {
   TriNode* split = tria.split(p2, p3);
