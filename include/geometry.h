@@ -18,4 +18,6 @@ namespace geometry {
   void get_cube(std::vector<GLfloat>& verts
     , std::vector<GLfloat>& normals
     , std::vector<GLuint>& indices);
+
+  void get_circle(std::vector<GLfloat>& verts, std::vector<GLfloat>& tex);
 }

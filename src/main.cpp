@@ -21,6 +21,9 @@ glm::vec3 s_selected;
 GLuint vao;
 GLuint vbo;
 
+GLuint vbo_circle[2];
+GLuint vao_circle;
+
 GLuint tvao = 0;
 GLuint tvbo = 0;
 
@@ -106,6 +109,71 @@ void mouse_callback(GLFWwindow* window, int button, int action, int mods) {
   }
 }
 
+void setup_circle(GLuint p) {
+  GLuint block_index = glGetUniformBlockIndex(p, "blob_settings");
+
+  GLint block_size;
+  glGetActiveUniformBlockiv(p, block_index, GL_UNIFORM_BLOCK_DATA_SIZE, &block_size);
+
+  GLubyte* block_buffer;
+  block_buffer = (GLubyte*)malloc(block_size);
+
+  const GLchar *names[] = { "blob_settings.inner_color", 
+    "blob_settings.outer_color", 
+    "blob_settings.radius_inner", 
+    "blob_settings.radius_outer"
+  };
+
+  GLuint indices[4];
+
+  glGetUniformIndices(p, 4, names, indices);
+
+  GLint offset[4];
+  glGetActiveUniformsiv(p, 4, indices, GL_UNIFORM_OFFSET, offset);
+
+  GLfloat outer_color[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+  GLfloat inner_color[] = { 1.0f, 1.0f, 0.75f, 1.0f };
+  GLfloat inner_radius = 0.25f, outer_radius = 0.29f;
+
+  memcpy(block_buffer + offset[0], inner_color, 4 * sizeof(GLfloat));
+  memcpy(block_buffer + offset[1], outer_color, 4 * sizeof(GLfloat));
+  memcpy(block_buffer + offset[2], &inner_radius, sizeof(GLfloat));
+  memcpy(block_buffer + offset[3], &outer_radius, sizeof(GLfloat));
+
+  GLuint ubo_handle;
+  glGenBuffers(1, &ubo_handle);
+  glBindBuffer(GL_UNIFORM_BUFFER, ubo_handle);
+  glBufferData(GL_UNIFORM_BUFFER, block_size, block_buffer, GL_DYNAMIC_DRAW);
+
+  glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo_handle);
+
+  std::vector<GLfloat> c_verts, c_tex;
+  geometry::get_circle(c_verts, c_tex);
+
+  glGenBuffers(2, vbo_circle);
+
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_circle[0]);
+  glBufferData(GL_ARRAY_BUFFER, c_verts.size() * sizeof(GLfloat), c_verts.data(), GL_STATIC_DRAW);
+
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_circle[1]);
+  glBufferData(GL_ARRAY_BUFFER, c_tex.size() * sizeof(GLfloat), c_tex.data(), GL_STATIC_DRAW);
+
+  glGenVertexArrays(1, &vao_circle);
+  glBindVertexArray(vao_circle);
+
+  glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(1);
+
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_circle[0]);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_circle[1]);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
+
 int main() {
   GLFWwindow* window = gl::initialize("Hello Triangle", false, 1280, 720);
   if (!window) {
@@ -141,6 +209,12 @@ int main() {
     {GL_FRAGMENT_SHADER, "tris.frag"}
   });
 
+  program::build("circle", {
+    {GL_VERTEX_SHADER, "circle.vert"},
+    {GL_FRAGMENT_SHADER, "circle.frag"}
+  });
+
+
 
   glm::mat4 model(1.0f);
 
@@ -154,6 +228,13 @@ int main() {
   GLint proj2 = glGetUniformLocation(p2, "proj");
   GLint modl2 = glGetUniformLocation(p2, "model");
 
+  GLuint p3 = program::get("circle");
+  GLint view3 = glGetUniformLocation(p3, "view");
+  GLint proj3 = glGetUniformLocation(p3, "proj");
+  GLint modl3 = glGetUniformLocation(p3, "model");
+
+  setup_circle(p3);
+  
 
   glEnable(GL_PROGRAM_POINT_SIZE);
 
@@ -191,9 +272,19 @@ int main() {
 
       glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
       glDrawArrays(GL_TRIANGLES, 0, tpoints.size());
+      glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     }
 
+    model = glm::translate(model, s_selected);
 
+    glBindVertexArray(vao_circle);
+    glUseProgram(p3);
+    glUniformMatrix4fv(view3, 1, GL_FALSE, &camera.m_view[0][0]);
+    glUniformMatrix4fv(proj3, 1, GL_FALSE, &camera.m_projection[0][0]);
+    glUniformMatrix4fv(modl3, 1, GL_FALSE, &model[0][0]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    model = glm::mat4(1.0f);
 
     glfwPollEvents();
     glfwSwapBuffers(window);
