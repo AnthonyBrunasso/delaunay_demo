@@ -135,7 +135,6 @@ void mouse_callback(GLFWwindow* window, int button, int action, int mods) {
         float r;
         delaunay::circle(f->m_pts[0], f->m_pts[1], f->m_pts[2], c, r);
         s_center = glm::vec3(c.x, c.y, 0.0f);
-        r = sqrtf(r);
         setup_circle(p3, r, r + 0.05f);
       }
     }

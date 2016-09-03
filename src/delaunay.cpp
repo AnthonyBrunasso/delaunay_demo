@@ -60,12 +60,10 @@ bool point_in_circle(const Point& pt,
   Point cen(x, y);
   Point r_diff = sub(a, cen);
   float dot_diff = dot(r_diff, r_diff);
-  float r_squared = dot_diff * dot_diff;
   Point p_diff = sub(pt, cen);
-  dot_diff = dot(p_diff, p_diff);
-  float p_squared = dot_diff * dot_diff;
+  float p_dot = dot(p_diff, p_diff);
 
-  return p_squared < r_squared;
+  return p_dot < dot_diff;
 }
 
 Triangulation::Triangulation(const Point& p1, 
@@ -232,9 +230,8 @@ void delaunay::circle(const Point& a,
 
   Point r_diff = sub(a, center);
   float dot_diff = dot(r_diff, r_diff);
-  float r_squared = dot_diff * dot_diff;
 
-  radius = sqrtf(r_squared);
+  radius = sqrtf(dot_diff);
 }
 
 delaunay::Triangulation* delaunay::triangulate(const std::vector<float>& points) {
