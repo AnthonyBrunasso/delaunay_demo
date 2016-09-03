@@ -11,8 +11,8 @@ layout (binding = 0) uniform blob_settings {
 } blob;
 
 void main() {
-  float dx = tex_coord.x - 0.5;
-  float dy = tex_coord.y - 0.5;
+  float dx = tex_coord.x;
+  float dy = tex_coord.y;
   float dist = sqrt(dx * dx + dy * dy);
   if (dist < blob.radius_inner) discard;
   frag_color = mix(blob.inner_color, blob.outer_color, smoothstep(blob.radius_inner, blob.radius_outer, dist));

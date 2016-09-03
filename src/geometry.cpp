@@ -149,22 +149,22 @@ void geometry::get_cube(std::vector<GLfloat>& verts
           
 }
 
-void geometry::get_circle(std::vector<GLfloat>& verts, std::vector<GLfloat>& tex) {
+void geometry::get_circle(std::vector<GLfloat>& verts, std::vector<GLfloat>& tex, float sz) {
   verts = {
-    -0.8f, -0.8f, 0.0f,
-    0.8f, -0.8f, 0.0f,
-    0.8f,  0.8f, 0.0f,
-    -0.8f, -0.8f, 0.0f,
-    0.8f, 0.8f, 0.0f,
-    -0.8f, 0.8f, 0.0f
+    -sz, -sz, 0.0f,
+    sz, -sz, 0.0f,
+    sz,  sz, 0.0f,
+    -sz, -sz, 0.0f,
+    sz, sz, 0.0f,
+    -sz, sz, 0.0f
   };
 
   tex = {
-    0.0f, 0.0f,
-    1.0f, 0.0f,
-    1.0f, 1.0f,
-    0.0f, 0.0f,
-    1.0f, 1.0f,
-    0.0f, 1.0f
+    -sz, -sz,
+    sz, -sz,
+    sz, sz,
+    -sz, -sz,
+    sz, sz,
+    -sz, sz
   };
 }

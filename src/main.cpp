@@ -17,19 +17,27 @@
 #include "delaunay.h"
 
 glm::vec3 s_selected;
+glm::vec3 s_center;
 
 GLuint vao;
 GLuint vbo;
 
+GLuint p3 = 0;
 GLuint vbo_circle[2];
 GLuint vao_circle;
 
+GLuint cvbo = 0;
 GLuint tvao = 0;
 GLuint tvbo = 0;
 
 std::vector<GLfloat> points;
 std::vector<GLfloat> tpoints;
+
+delaunay::Triangulation* tria = nullptr;
+
 size_t pidx = 0;
+
+void setup_circle(GLuint p, float r_inner, float r_outer);
 
 void set_selected(glm::vec3& selected, double xpos, double ypos) {
   glm::vec3 from;
@@ -70,7 +78,8 @@ void add_point(const glm::vec3& pt) {
     i += 3;
   }
 
-  std::vector<float> d = delaunay::triangulate(pts);
+  tria = delaunay::triangulate(pts);
+  std::vector<float> d = tria->get_tris();
   // Make it 3d.
   tpoints.clear();
   tpoints.resize(d.size() + d.size() / 2);
@@ -107,9 +116,33 @@ void mouse_callback(GLFWwindow* window, int button, int action, int mods) {
 
     add_point(s_selected);
   }
+  else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+    glm::vec3 selected;
+
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
+    set_selected(selected, xpos, ypos);
+
+    if (tria) {
+      std::vector<delaunay::TriNode*> nodes;
+
+      delaunay::Point p(selected.x, selected.y);
+      tria->find(p, nodes);
+
+      if (nodes.size() == 1) {
+        delaunay::TriNode* f = nodes.front();
+        delaunay::Point c;
+        float r;
+        delaunay::circle(f->m_pts[0], f->m_pts[1], f->m_pts[2], c, r);
+        s_center = glm::vec3(c.x, c.y, 0.0f);
+        r = sqrtf(r);
+        setup_circle(p3, r, r + 0.05f);
+      }
+    }
+  }
 }
 
-void setup_circle(GLuint p) {
+void setup_circle(GLuint p, float r_inner, float r_outer) {
   GLuint block_index = glGetUniformBlockIndex(p, "blob_settings");
 
   GLint block_size;
@@ -124,6 +157,7 @@ void setup_circle(GLuint p) {
     "blob_settings.radius_outer"
   };
 
+
   GLuint indices[4];
 
   glGetUniformIndices(p, 4, names, indices);
@@ -133,22 +167,25 @@ void setup_circle(GLuint p) {
 
   GLfloat outer_color[] = { 0.0f, 0.0f, 0.0f, 0.0f };
   GLfloat inner_color[] = { 1.0f, 1.0f, 0.75f, 1.0f };
-  GLfloat inner_radius = 0.25f, outer_radius = 0.29f;
+  GLfloat inner_radius = r_inner, outer_radius = r_outer;
 
   memcpy(block_buffer + offset[0], inner_color, 4 * sizeof(GLfloat));
   memcpy(block_buffer + offset[1], outer_color, 4 * sizeof(GLfloat));
   memcpy(block_buffer + offset[2], &inner_radius, sizeof(GLfloat));
   memcpy(block_buffer + offset[3], &outer_radius, sizeof(GLfloat));
 
-  GLuint ubo_handle;
-  glGenBuffers(1, &ubo_handle);
-  glBindBuffer(GL_UNIFORM_BUFFER, ubo_handle);
-  glBufferData(GL_UNIFORM_BUFFER, block_size, block_buffer, GL_DYNAMIC_DRAW);
+  glDeleteBuffers(1, &cvbo);
+  glDeleteBuffers(2, vbo_circle);
 
-  glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo_handle);
+  glGenBuffers(1, &cvbo);
+  glBindBuffer(GL_UNIFORM_BUFFER, cvbo);
+  glBufferData(GL_UNIFORM_BUFFER, block_size, block_buffer, GL_DYNAMIC_DRAW);
+  free(block_buffer);
+
+  glBindBufferBase(GL_UNIFORM_BUFFER, 0, cvbo);
 
   std::vector<GLfloat> c_verts, c_tex;
-  geometry::get_circle(c_verts, c_tex);
+  geometry::get_circle(c_verts, c_tex, r_outer + 1.0f);
 
   glGenBuffers(2, vbo_circle);
 
@@ -228,12 +265,12 @@ int main() {
   GLint proj2 = glGetUniformLocation(p2, "proj");
   GLint modl2 = glGetUniformLocation(p2, "model");
 
-  GLuint p3 = program::get("circle");
+  p3 = program::get("circle");
   GLint view3 = glGetUniformLocation(p3, "view");
   GLint proj3 = glGetUniformLocation(p3, "proj");
   GLint modl3 = glGetUniformLocation(p3, "model");
 
-  setup_circle(p3);
+  setup_circle(p3, 0.35f, 0.40f);
   
 
   glEnable(GL_PROGRAM_POINT_SIZE);
@@ -275,7 +312,7 @@ int main() {
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     }
 
-    model = glm::translate(model, s_selected);
+    model = glm::translate(model, s_center);
 
     glBindVertexArray(vao_circle);
     glUseProgram(p3);

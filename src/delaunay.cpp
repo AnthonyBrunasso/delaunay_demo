@@ -12,23 +12,6 @@ namespace delaunay {
 Point b1(20.0f, -20.0f);
 Point b2(-20.0f, -20.0f);
 
-struct TriNode {
-  TriNode(const Point& p1, 
-      const Point& p2, 
-      const Point& p3) {
-    m_pts[0] = p1;
-    m_pts[1] = p2;
-    m_pts[2] = p3;
-
-    m_children[0] = nullptr; 
-    m_children[1] = nullptr; 
-    m_children[2] = nullptr;
-  }
-  // Vertices of the triangle.
-  Point m_pts[3];
-  TriNode* m_children[3];
-};
-
 Point sub(const Point& p1, const Point& p2) {
   return Point(p1.x - p2.x, p1.y - p2.y);
 }
@@ -154,6 +137,10 @@ std::vector<float> Triangulation::get_tris() {
   return tris;
 }
 
+void Triangulation::find(const Point& pt, std::vector<TriNode*>& nodes) {
+  find(pt, m_root, nodes);
+}
+
 void Triangulation::find(const Point& pt, TriNode* node, std::vector<TriNode*>& nodes) {
   bool contains = vert_in(pt, node->m_pts) || point_in_tri(pt, node->m_pts);
   if (!contains) return;
@@ -230,7 +217,27 @@ void legalize_edge(const Point& p1, const Point& p2, const Point& p3, Triangulat
 
 }
 
-std::vector<float> delaunay::triangulate(const std::vector<float>& points) {
+void delaunay::circle(const Point& a,
+    const Point& b,
+    const Point& c, 
+    Point& center,
+    float& radius) {
+  float ma = (b.y - a.y) / (b.x - a.x);
+  float mb = (c.y - b.y) / (c.x - b.x);
+  float x = (ma * mb * (a.y - c.y) + mb * (a.x + b.x) - ma * (b.x + c.x)) / (2 * (mb - ma));
+  float y = (-1.0f / ma) * (x - (a.x + b.x) / 2.0f) + ((a.y + b.y) / 2.0f);
+
+  center = Point(x, y);
+  Point d = sub(a, c);
+
+  Point r_diff = sub(a, center);
+  float dot_diff = dot(r_diff, r_diff);
+  float r_squared = dot_diff * dot_diff;
+
+  radius = sqrtf(r_squared);
+}
+
+delaunay::Triangulation* delaunay::triangulate(const std::vector<float>& points) {
   // Find max point.
   Point max(-FLT_MAX, -FLT_MAX);
   for (size_t i = 0; i < points.size(); i += 2) {
@@ -245,12 +252,12 @@ std::vector<float> delaunay::triangulate(const std::vector<float>& points) {
   }
 
   Point bounds[3] = { b1, b2, max };
-  Triangulation tria(b1, b2, max, ps);
+  Triangulation* tria = new Triangulation(b1, b2, max, ps);
 
   //std::random_shuffle(ps.begin(), ps.end());
   for (size_t i = 0; i < ps.size(); ++i) {
     Point& pt = ps[i];
-    TriNode* inserted = tria.insert(pt);
+    TriNode* inserted = tria->insert(pt);
 
     if (!inserted) continue;
 
@@ -259,21 +266,17 @@ std::vector<float> delaunay::triangulate(const std::vector<float>& points) {
     Point* pts2 = inserted->m_children[1]->m_pts;
     Point* pts3 = inserted->m_children[2]->m_pts;
 
-    //tria.flip(pts1[1], pts1[2]);
-    //tria.flip(pts2[1], pts1[2]);
-    //tria.flip(pts3[1], pts1[2]);
-
     if (!vert_in(pts1[1], bounds) || !vert_in(pts1[2], bounds)) {
-      legalize_edge(pt, pts1[1], pts1[2], tria);
+      legalize_edge(pt, pts1[1], pts1[2], *tria);
     }
 
     if (!vert_in(pts2[1], bounds) || !vert_in(pts2[2], bounds)) {
-      legalize_edge(pt, pts2[1], pts2[2], tria);
+      legalize_edge(pt, pts2[1], pts2[2], *tria);
     }
 
     if (!vert_in(pts3[1], bounds) || !vert_in(pts3[2], bounds)) {
-      legalize_edge(pt, pts3[1], pts3[2], tria);
+      legalize_edge(pt, pts3[1], pts3[2], *tria);
     }
   }
-  return tria.get_tris();
+  return tria;
 }

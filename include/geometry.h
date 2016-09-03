@@ -19,5 +19,5 @@ namespace geometry {
     , std::vector<GLfloat>& normals
     , std::vector<GLuint>& indices);
 
-  void get_circle(std::vector<GLfloat>& verts, std::vector<GLfloat>& tex);
+  void get_circle(std::vector<GLfloat>& verts, std::vector<GLfloat>& tex, float sz);
 }
