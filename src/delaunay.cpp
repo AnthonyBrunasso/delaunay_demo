@@ -117,8 +117,6 @@ TriNode* Triangulation::split(const Point& p1, const Point& p2) {
     return nullptr;
   }
 
-  std::cout << "FLIPPING" << std::endl;
-
   TriNode* t1 = new TriNode(p1, p3, p4);
   TriNode* t2 = new TriNode(p2, p4, p3);
 
