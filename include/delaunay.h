@@ -55,7 +55,10 @@ namespace delaunay {
   private:
     // Finds the leaf nodes of the tree the point is contained in.
     // A point could be contained in many nodes if it is already an existing vertex.
-    void find(const Point& pt, TriNode* node, std::vector<TriNode*>& nodes);
+    void find(const Point& pt, 
+      TriNode* node, 
+      std::vector<TriNode*>& nodes, 
+      std::set<TriNode*>& added);
 
     // Find all triangles containing both p1 and p2.
     void find_by_edge(const Point& p1,

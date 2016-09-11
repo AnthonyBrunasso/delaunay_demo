@@ -79,7 +79,8 @@ Triangulation::~Triangulation() {
 
 TriNode* Triangulation::insert(const Point& pt) {
   std::vector<TriNode*> nodes;
-  find(pt, m_root, nodes);
+  std::set<TriNode*> added;
+  find(pt, m_root, nodes, added);
   // There should only be a single triangle containing this point, otherwise
   // it was likely an existing vertex.
   if (nodes.size() != 1) return nullptr;
@@ -96,7 +97,7 @@ TriNode* Triangulation::split(const Point& p1, const Point& p2) {
   std::vector<TriNode*> nodes;
   find_by_edge(p1, p2, m_root, nodes);
   // We can only split a convex quadrilateral.
-  if (nodes.size() != 2) return nullptr;
+  if (nodes.size() < 2) return nullptr;
   TriNode* n1 = nodes[0];
   TriNode* n2 = nodes[1];
 
@@ -111,7 +112,6 @@ TriNode* Triangulation::split(const Point& p1, const Point& p2) {
     }
   }
 
-  // Check if a split needs to happen.
   if (!point_in_circle(p4, n2->m_pts[0], n2->m_pts[1], n2->m_pts[2]) && 
       !point_in_circle(p3, n1->m_pts[0], n1->m_pts[1], n1->m_pts[2])) {
     return nullptr;
@@ -136,10 +136,14 @@ std::vector<float> Triangulation::get_tris() {
 }
 
 void Triangulation::find(const Point& pt, std::vector<TriNode*>& nodes) {
-  find(pt, m_root, nodes);
+  std::set<TriNode*> added;
+  find(pt, m_root, nodes, added);
 }
 
-void Triangulation::find(const Point& pt, TriNode* node, std::vector<TriNode*>& nodes) {
+void Triangulation::find(const Point& pt, 
+    TriNode* node, 
+    std::vector<TriNode*>& nodes,
+    std::set<TriNode*>& added) {
   bool contains = vert_in(pt, node->m_pts) || point_in_tri(pt, node->m_pts);
   if (!contains) return;
   contains = false;
@@ -147,12 +151,15 @@ void Triangulation::find(const Point& pt, TriNode* node, std::vector<TriNode*>& 
   for (int i = 0; i < 3; ++i) {
     if (node->m_children[i]) {
       contains = true;
-      find(pt, node->m_children[i], nodes);
+      find(pt, node->m_children[i], nodes, added);
     }
   }
 
   // If this node was a leaf add it to the list.
-  if (!contains) nodes.push_back(node);
+  if (!contains && added.find(node) == added.end()) {
+    nodes.push_back(node);
+    added.insert(node);
+  }
 }
 
 // Find all triangles containing both p1 and p2.
@@ -161,7 +168,8 @@ void Triangulation::find_by_edge(const Point& p1,
     TriNode* node,
     std::vector<TriNode*>& nodes) {
   std::vector<TriNode*> n1;
-  find(p1, m_root, n1);
+  std::set<TriNode*> added;
+  find(p1, m_root, n1, added);
   for (auto& n : n1) {
     if (vert_in(p1, n->m_pts) && vert_in(p2, n->m_pts)) {
       nodes.push_back(n);
