@@ -97,7 +97,7 @@ TriNode* Triangulation::split(const Point& p1, const Point& p2) {
   std::vector<TriNode*> nodes;
   find_by_edge(p1, p2, m_root, nodes);
   // We can only split a convex quadrilateral.
-  if (nodes.size() < 2) return nullptr;
+  if (nodes.size() != 2) return nullptr;
   TriNode* n1 = nodes[0];
   TriNode* n2 = nodes[1];
 
@@ -120,8 +120,14 @@ TriNode* Triangulation::split(const Point& p1, const Point& p2) {
   TriNode* t1 = new TriNode(p1, p3, p4);
   TriNode* t2 = new TriNode(p2, p4, p3);
 
-  n1->m_children[0] = n2->m_children[0] = t1;
-  n1->m_children[1] = n2->m_children[1] = t2;
+  n1->m_children[0] = t1;
+  n2->m_children[0] = t1;
+
+  n1->m_children[1] = t2;
+  n2->m_children[1] = t2;
+
+  n1->m_children[2] = nullptr;
+  n2->m_children[2] = nullptr;
 
   return n1;
 }
@@ -215,8 +221,21 @@ void legalize_edge(const Point& p1, const Point& p2, const Point& p3, Triangulat
   if (!split) return;
   Point* pts1 = split->m_children[0]->m_pts;
   Point* pts2 = split->m_children[1]->m_pts;
-  legalize_edge(p1, pts1[1], pts1[2], tria);
-  legalize_edge(p1, pts2[1], pts2[2], tria);
+  // Find the new point not belonging to p1, p2, or p3 and legalize edges to it.
+  Point p;
+  Point bounds[3] = {p1, p2, p3};
+  for (int i = 0; i < 3; ++i) {
+    if (!vert_in(pts1[i], bounds)) {
+      p = pts1[i];
+      break;
+    }
+    if (!vert_in(pts2[i], bounds)) {
+      p = pts2[i];
+      break;
+    }
+  }
+  legalize_edge(p1, p2, p, tria);
+  legalize_edge(p1, p3, p, tria);
 }
 
 }
