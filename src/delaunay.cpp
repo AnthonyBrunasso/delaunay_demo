@@ -276,7 +276,7 @@ delaunay::Triangulation* delaunay::triangulate(const std::vector<float>& points)
   Point bounds[3] = { b1, b2, max };
   Triangulation* tria = new Triangulation(b1, b2, max, ps);
 
-  //std::random_shuffle(ps.begin(), ps.end());
+  std::random_shuffle(ps.begin(), ps.end());
   for (size_t i = 0; i < ps.size(); ++i) {
     Point& pt = ps[i];
     TriNode* inserted = tria->insert(pt);
